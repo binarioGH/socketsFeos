@@ -1,72 +1,88 @@
-'''
 #-*-coding: utf-8-*-
 from socket import *
-from cryptography.fernet import Fernet as fernet
-from threading import Thread
-from sys import argv
 from optparse import OptionParser as op
+from cryptography.fernet import Fernet as fern
+from sys import argv
+from threading import *
 from platform import python_version as pv
-from random import randint
-
-class Server:
-
-
-	def __init__(self, ip, port, usrs, key): #usrs = la cantidad de usuarios que se van a esperar
-	    self.crypt = Fernet(key)
-
+from os import system, getcwd, chdir
+class Chat():
+	def __init__(self, ip, port, wait, key):
+		self.hashes = []
+		self.f = fern(key)
+		self.l = wait
 		self.sock = socket(AF_INET, SOCK_STREAM)
-		self.sock.bind((ip, port))
-		self.sock.listen(usrs)
-
-		
-		self.users = {} #lista de usuarios
-
-		waiting = Thread(target=self.wait, args=(usrs,))
-		wating.daemon = True
-		waiting.start()
-		hearing = Thread(target=self.hear2all, args=())
-
-	def wait(self, cant):
-		while True:
-			while len(self.users) <= cant:
+		self.bind((ip, port))
+		self.sock.listen(self.l)
+		self.sock.settimeout(0.0)
+		self.clients = []
+		self.t = {"wait":True,"printconn":True,"hear":True,"spy":False,"printtoken":False} 
+		self.o = ("wait","printconn","hear","spy","printtoken") 
+	def waitting(self):
+		while self.t["wait"]:
+			while len(self.clients) < self.l:
 				try:
 					conn, addr = self.sock.accept()
-					self.users.[conn] = "User-{}-{}".format(len(self.users, randint(10,1000))) 
-					print("New connection/Nueva conexión: {}".format(addr))
-				except Exception as e:
-					print(e)
-
-#Escuchar y procesar mensajes (abajo)/Hear, process and send messages(down)
-	def hear2all(self):
-		while True:
-			for user in self.users:
+					if self.t["printconn"]:
+						print(addr)
+				except:
+					pass
+	def heartoall(self):
+		while self.t["hear"]:
+			for client in self.clients:
 				try:
-					msj = user.recv(1024)
-					msj = self.toprocess(msj, self.users[user])
-					self.send2all(user, msj)
-
-	def toprocess(self, msj, usr):
-		newmsj = "{}: {}\n".format(usr,self.crypt.decrypt(msj))
-		return self.crypt.encrypt(newmsj)
-
-	def send2all(self, messenger, msj):
-		for user in self.users:
-			if user == messenger:
+					msj = client.recv(1024)
+					if self.t["spy"]:
+						self.dcrypt(client, msj)
+					self.sendtoall(msj, client)
+				except:
+					pass
+	def dcrypt(self,c, token):
+		try:
+			t = self.f.decrypt(token)
+		except:
+			self.hashes.append(token)
+			if self.t["printtoken"]:
+				print(t)
+		else:
+			print(t)
+	def sendtoall(self, m, c):
+		for client in self.clients:
+			if c == client:
 				continue
-			else:
-				user.send(msj)
-#Escuchar, procesar y mandar mensajes (arriba)/Hear, process and send messages(up)
-
+			try:
+				client.send(m)
+			except:
+				self.clients.remove(client)
+def turnonoff(c, fo):
+	if c in s.o:
+		s.t[c] = fo
+	else:
+		print("Option not found.")
 if __name__ == '__main__':
-	#Recivir argumentos (abajo)/recive arguments (down)
-	argparser = op("Uso: %prog [Opción] [Argumento]")
-	argparser.add_option("-H", "--host", dest="host", type="string", help="Declarar ip del servidor./Set server's ip.")
-	argparser.add_option("-p", "--port", dest="port", type="int", help="Declarar puerto./Set server's port.")
-	argparser.add_option("-k", "--key", dest="key", type="string", help="Declarar la clave para encriptar (fernet)./Set cryptography key (fernet).")
-	argparser.add_option("-u", "--users", dest="users", type="int", help="Declarar la cantidad de usuarios que se pueden conectar./Set how many clients can be connected to the server.")
-	(o, argv) = argparser.parse_args()
-	o.key = options.key.encode()
-	#Recivir argumentos (arriba)/recive arguments (up)
-	
-	main = Server(o.host, o.port, o.users, o.key)
-'''
+	opt = op("Usage: %prog [options] [data]")
+	opt.add_option("-H","-i","--host",help="Set Host",type="string", dest="host", default="127.0.0.1")
+	opt.add_option("-p", "--port",help="Set port", type="int", dest="port", default=5000)	
+	opt.add_option("-l", "--listen",help="Set how many clients can connect at the same time.",type="int",dest="listen",default=2)
+	opt.add_option("-k", "--key",help="Set Fernet key",type="string",dest="key",default="nWlbFw0M9JjS_B6AhIDR8fr0d-VtNukc5xNrYhw2vz4=")
+	(o, argv) = opt.parse_args()
+	o.key = o.key.encode()
+	s = Chat(o.host, o.port, o.listen, o.key)
+	w = Thread(target=s.waitting)
+	w.daemon = True
+	w.start()
+	h = Thread(target=s.heartoall)
+	h.daemon = True
+	h.start()
+	if str(pv())[0] != "3":
+		raw_input = input
+	cmd = ""
+	while cmd != "exit":
+		try:
+			cmd = raw_input("{}>".format(getcwd()))
+			if cmd[:2] == "cd":
+				chdir(cmd[3:])
+			elif cmd[:7] == "turn on":
+				turnonoff(cmd[8:], True)
+			elif cmd[:8] == "turn off":
+				turnonoff(cmd[9:], False)
