@@ -27,6 +27,7 @@ class Chat():
 			while len(self.clients) < self.l:
 				try:
 					conn, addr = self.sock.accept()
+					self.clients.append(conn)
 					if self.t["printconn"]:
 						print(addr)
 				except:
@@ -36,18 +37,19 @@ class Chat():
 			for client in self.clients:
 				try:
 					msj = client.recv(1024)
+				except:
+					pass
+				else:
 					if self.t["spy"]:
 						self.dcrypt(client, msj)
 					self.sendtoall(msj, client)
-				except:
-					pass
 	def dcrypt(self,c, token):
 		try:
 			t = self.f.decrypt(token)
 		except:
 			self.hashes.append(token)
 			if self.t["printtoken"]:
-				print(t)
+				print(token.decode())
 		else:
 			nick = ""
 			if c in self.nicknames:
