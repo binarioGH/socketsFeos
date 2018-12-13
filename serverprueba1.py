@@ -12,12 +12,16 @@ class Chat():
 		self.f = fern(key)
 		self.l = wait
 		self.sock = socket(AF_INET, SOCK_STREAM)
-		self.bind((ip, port))
+		self.sock.bind((ip, port))
 		self.sock.listen(self.l)
 		self.sock.settimeout(0.0)
 		self.clients = []
 		self.t = {"wait":True,"printconn":True,"hear":True,"spy":False,"printtoken":False} 
-		self.o = ("wait","printconn","hear","spy","printtoken") 
+		self.o = ("wait","printconn","hear","spy","printtoken")
+		self.nicknames = {}
+	def status(self):
+		for option in self.t:
+			print("\n{} = {}\n".format(option, self.t[option]))
 	def waitting(self):
 		while self.t["wait"]:
 			while len(self.clients) < self.l:
@@ -45,7 +49,10 @@ class Chat():
 			if self.t["printtoken"]:
 				print(t)
 		else:
-			print(t)
+			nick = ""
+			if c in self.nicknames:
+				nick="{}:".format(self.nicknames[c])
+			print("\n{}{}{}\n".format(nick,c,t))
 	def sendtoall(self, m, c):
 		for client in self.clients:
 			if c == client:
@@ -57,8 +64,9 @@ class Chat():
 def turnonoff(c, fo):
 	if c in s.o:
 		s.t[c] = fo
+		print("\n{} = {}\n".format(c, fo))
 	else:
-		print("Option not found.")
+		print("\nOption not found.\n")
 if __name__ == '__main__':
 	opt = op("Usage: %prog [options] [data]")
 	opt.add_option("-H","-i","--host",help="Set Host",type="string", dest="host", default="127.0.0.1")
@@ -74,7 +82,7 @@ if __name__ == '__main__':
 	h = Thread(target=s.heartoall)
 	h.daemon = True
 	h.start()
-	if str(pv())[0] != "3":
+	if str(pv())[0] == "3":
 		raw_input = input
 	cmd = ""
 	while cmd != "exit":
@@ -86,3 +94,9 @@ if __name__ == '__main__':
 				turnonoff(cmd[8:], True)
 			elif cmd[:8] == "turn off":
 				turnonoff(cmd[9:], False)
+			elif cmd == "status":
+				s.status()
+			else:
+				system(cmd)
+		except Exception as e:
+			print(e)
